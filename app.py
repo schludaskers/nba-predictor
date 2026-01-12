@@ -173,12 +173,12 @@ with st.sidebar:
                 if st.button(row['PLAYER'], key=f"btn_{row['PLAYER_ID']}"):
                     st.session_state.selected_player_id = row['PLAYER_ID']
                     st.session_state.selected_player_name = row['PLAYER']
-                    st.session_state.selected_player_team_id = tid # Store team ID
+                    st.session_state.selected_player_team_id = tid 
 
 # --- MAIN PAGE ---
 st.markdown("<h1 style='text-align: center; margin-bottom: 30px;'>🏀 NBA PROP ASSASSIN</h1>", unsafe_allow_html=True)
 
-# --- ROBUST SESSION STATE INITIALIZATION ---
+# --- ROBUST SESSION STATE ---
 if 'selected_player_id' not in st.session_state:
     st.session_state.selected_player_id = None
 if 'selected_player_name' not in st.session_state:
@@ -196,7 +196,7 @@ with c2:
         if found:
             st.session_state.selected_player_id = found['id']
             st.session_state.selected_player_name = found['full_name']
-            st.session_state.selected_player_team_id = None # Unknown team
+            st.session_state.selected_player_team_id = None
 
 if st.session_state.selected_player_id:
     pid = st.session_state.selected_player_id
@@ -246,31 +246,31 @@ if st.session_state.selected_player_id:
         except:
             pass
 
-        # --- PLAYER HEADER ---
+        # --- PLAYER HEADER (FIXED HTML FORMATTING) ---
         with st.container():
             st.markdown(f"""
-            <div class='glass-card' style='display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px;'>
-                <div style='display: flex; align-items: center; gap: 20px;'>
-                    <img src='https://ak-static.cms.nba.com/wp-content/uploads/headshots/nba/latest/260x190/{pid}.png' style='border-radius: 10px; height: 100px;'>
-                    <div>
-                        <div class='player-name'>{pname}</div>
-                        <div class='team-name'>ID: {pid} • 2025-26 Season</div>
-                    </div>
-                </div>
-                
-                <div style='display: flex; align-items: center; gap: 20px;'>
-                    <div class='{matchup_color}' style='font-size: 14px;'>{opponent_rank_display}</div>
-                    
-                    <div style='display: flex; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 10px;'>
-                        <div class='banner-stat-box'><div class='banner-val'>{avg_stats['PTS']:.1f}</div><div class='banner-label'>PTS</div></div>
-                        <div class='banner-stat-box'><div class='banner-val'>{avg_stats['REB']:.1f}</div><div class='banner-label'>REB</div></div>
-                        <div class='banner-stat-box'><div class='banner-val'>{avg_stats['AST']:.1f}</div><div class='banner-label'>AST</div></div>
-                        <div class='banner-stat-box'><div class='banner-val'>{avg_stats['STL']:.1f}</div><div class='banner-label'>STL</div></div>
-                        <div class='banner-stat-box'><div class='banner-val'>{avg_stats['BLK']:.1f}</div><div class='banner-label'>BLK</div></div>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+<div class='glass-card' style='display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px;'>
+    <div style='display: flex; align-items: center; gap: 20px;'>
+        <img src='https://ak-static.cms.nba.com/wp-content/uploads/headshots/nba/latest/260x190/{pid}.png' style='border-radius: 10px; height: 100px;'>
+        <div>
+            <div class='player-name'>{pname}</div>
+            <div class='team-name'>ID: {pid} • 2025-26 Season</div>
+        </div>
+    </div>
+    
+    <div style='display: flex; align-items: center; gap: 20px;'>
+        <div class='{matchup_color}' style='font-size: 14px;'>{opponent_rank_display}</div>
+        
+        <div style='display: flex; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 10px;'>
+            <div class='banner-stat-box'><div class='banner-val'>{avg_stats['PTS']:.1f}</div><div class='banner-label'>PTS</div></div>
+            <div class='banner-stat-box'><div class='banner-val'>{avg_stats['REB']:.1f}</div><div class='banner-label'>REB</div></div>
+            <div class='banner-stat-box'><div class='banner-val'>{avg_stats['AST']:.1f}</div><div class='banner-label'>AST</div></div>
+            <div class='banner-stat-box'><div class='banner-val'>{avg_stats['STL']:.1f}</div><div class='banner-label'>STL</div></div>
+            <div class='banner-stat-box'><div class='banner-val'>{avg_stats['BLK']:.1f}</div><div class='banner-label'>BLK</div></div>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
         st.markdown("### 📊 Prop Analyzer")
         tab_pts, tab_reb, tab_ast, tab_stl, tab_blk = st.tabs(["Points", "Rebounds", "Assists", "Steals", "Blocks"])
