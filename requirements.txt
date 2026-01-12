@@ -1,0 +1,8 @@
+nba_api
+pandas
+scikit-learn
+streamlit
+plotly
+requests
+joblib
+numpy
