@@ -27,6 +27,23 @@ st.markdown("""
         margin-bottom: 20px;
     }
     
+    /* Game Slate Card */
+    .game-card {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 10px;
+        text-align: center;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        min-width: 140px;
+        margin-right: 10px;
+    }
+    .game-card:hover {
+        border-color: #00ADB5;
+        background: rgba(255, 255, 255, 0.1);
+    }
+    .team-logo-small { width: 40px; height: 40px; object-fit: contain; }
+    .vs-text { font-size: 12px; color: #888; margin: 0 5px; font-weight: bold; }
+    
     .stButton button {
         width: 100%;
         background-color: #1E1E28;
@@ -95,6 +112,9 @@ def train_model_from_csv():
 def get_team_map():
     nba_teams = teams.get_teams()
     return {t['id']: t['abbreviation'] for t in nba_teams}
+
+def get_logo_url(team_id):
+    return f"https://cdn.nba.com/logos/nba/{team_id}/primary/L/logo.svg"
 
 @st.cache_data
 def get_roster(team_id):
@@ -178,6 +198,41 @@ with st.sidebar:
 # --- MAIN PAGE ---
 st.markdown("<h1 style='text-align: center; margin-bottom: 30px;'>🏀 NBA PROP ASSASSIN</h1>", unsafe_allow_html=True)
 
+# --- GAME SLATE (NEW) ---
+try:
+    board = scoreboardv2.ScoreboardV2(game_date=selected_date)
+    games = board.game_header.get_data_frame()
+    
+    if not games.empty:
+        st.markdown(f"#### 📅 Games for {selected_date.strftime('%b %d')}")
+        
+        # Create a horizontal scrolling container using columns
+        # We'll display up to 8 games, if more, it just shows first 8 (for space)
+        cols = st.columns(min(len(games), 8))
+        
+        for i, (index, row) in enumerate(games.iterrows()):
+            if i < 8:
+                with cols[i]:
+                    home_id = row['HOME_TEAM_ID']
+                    vis_id = row['VISITOR_TEAM_ID']
+                    
+                    st.markdown(f"""
+                    <div class='game-card'>
+                        <div style='display: flex; justify-content: center; align-items: center; margin-bottom: 5px;'>
+                            <img src='{get_logo_url(vis_id)}' class='team-logo-small'>
+                            <span class='vs-text'>@</span>
+                            <img src='{get_logo_url(home_id)}' class='team-logo-small'>
+                        </div>
+                        <div style='font-size: 10px; color: #aaa;'>{row['GAME_STATUS_TEXT']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+    else:
+        st.info("No games scheduled for this date.")
+except:
+    st.error("Could not load game slate.")
+
+st.divider()
+
 # --- ROBUST SESSION STATE ---
 if 'selected_player_id' not in st.session_state:
     st.session_state.selected_player_id = None
@@ -219,10 +274,8 @@ if st.session_state.selected_player_id:
         matchup_color = "matchup-mid"
         
         try:
-            board = scoreboardv2.ScoreboardV2(game_date=selected_date)
-            games = board.game_header.get_data_frame()
-            
-            if ptid:
+            # Re-fetch games if not already loaded (though we loaded them above)
+            if not games.empty and ptid:
                 game_row = games[(games['HOME_TEAM_ID'] == ptid) | (games['VISITOR_TEAM_ID'] == ptid)]
                 if not game_row.empty:
                     if game_row.iloc[0]['HOME_TEAM_ID'] == ptid:
@@ -246,7 +299,7 @@ if st.session_state.selected_player_id:
         except:
             pass
 
-        # --- PLAYER HEADER (FIXED: NO INDENTATION) ---
+        # --- PLAYER HEADER ---
         with st.container():
             st.markdown(f"""
 <div class='glass-card' style='display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px;'>
