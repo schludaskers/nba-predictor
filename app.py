@@ -246,7 +246,7 @@ if st.session_state.selected_player_id:
         except:
             pass
 
-        # --- PLAYER HEADER (FIXED HTML FORMATTING) ---
+        # --- PLAYER HEADER (FIXED: NO INDENTATION) ---
         with st.container():
             st.markdown(f"""
 <div class='glass-card' style='display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px;'>
@@ -257,10 +257,8 @@ if st.session_state.selected_player_id:
             <div class='team-name'>ID: {pid} • 2025-26 Season</div>
         </div>
     </div>
-    
     <div style='display: flex; align-items: center; gap: 20px;'>
         <div class='{matchup_color}' style='font-size: 14px;'>{opponent_rank_display}</div>
-        
         <div style='display: flex; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 10px;'>
             <div class='banner-stat-box'><div class='banner-val'>{avg_stats['PTS']:.1f}</div><div class='banner-label'>PTS</div></div>
             <div class='banner-stat-box'><div class='banner-val'>{avg_stats['REB']:.1f}</div><div class='banner-label'>REB</div></div>
