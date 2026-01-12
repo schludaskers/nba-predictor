@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime
-from nba_api.stats.endpoints import scoreboardv2, playergamelog, commonteamroster
+from nba_api.stats.endpoints import scoreboardv2, playergamelog, commonteamroster, leaguedashteamstats
 from nba_api.stats.static import players, teams
 from sklearn.ensemble import RandomForestRegressor
 
@@ -27,7 +27,6 @@ st.markdown("""
         margin-bottom: 20px;
     }
     
-    /* Roster Buttons */
     .stButton button {
         width: 100%;
         background-color: #1E1E28;
@@ -40,7 +39,6 @@ st.markdown("""
         color: #00ADB5;
     }
 
-    /* Typography */
     .big-stat {
         font-size: 36px;
         font-weight: 800;
@@ -62,7 +60,11 @@ st.markdown("""
     .banner-val { font-size: 20px; font-weight: 700; color: #fff; }
     .banner-label { font-size: 10px; color: #aaa; text-transform: uppercase; }
 
-    /* Betting Badges */
+    /* Matchup Badges */
+    .matchup-hard { background-color: rgba(255, 46, 99, 0.2); color: #FF2E63; padding: 5px 10px; border-radius: 8px; font-weight: bold; border: 1px solid #FF2E63; }
+    .matchup-easy { background-color: rgba(0, 255, 127, 0.2); color: #00FF7F; padding: 5px 10px; border-radius: 8px; font-weight: bold; border: 1px solid #00FF7F; }
+    .matchup-mid { background-color: rgba(255, 255, 0, 0.2); color: #FFD700; padding: 5px 10px; border-radius: 8px; font-weight: bold; border: 1px solid #FFD700; }
+
     .badge-over { background-color: rgba(0, 255, 127, 0.2); color: #00FF7F; padding: 5px 10px; border-radius: 8px; font-weight: bold; border: 1px solid #00FF7F; }
     .badge-under { background-color: rgba(255, 46, 99, 0.2); color: #FF2E63; padding: 5px 10px; border-radius: 8px; font-weight: bold; border: 1px solid #FF2E63; }
 </style>
@@ -115,6 +117,27 @@ def get_player_recent_stats(player_id):
     except:
         return pd.DataFrame()
 
+# --- NEW: DEFENSIVE RANKINGS ---
+@st.cache_data
+def get_team_defense_rankings():
+    """Fetches current season defensive rankings for Points Allowed."""
+    try:
+        # Fetch league stats
+        stats = leaguedashteamstats.LeagueDashTeamStats(season='2025-26', measure_type_detailed_defense='Base')
+        df = stats.get_data_frames()[0]
+        # Sort by PTS allowed (lower is better defense)
+        df = df.sort_values('PTS') 
+        
+        # Create a map: {Team_ID: Rank}
+        rank_map = {}
+        for rank, (index, row) in enumerate(df.iterrows(), 1):
+            rank_map[row['TEAM_ID']] = rank
+            
+        return rank_map
+    except Exception as e:
+        print(f"Error fetching defense: {e}")
+        return {}
+
 def predict(models, recent_stats):
     if len(recent_stats) < 5: return None
     last_5 = recent_stats.tail(5)
@@ -131,16 +154,20 @@ def predict(models, recent_stats):
 # --- MAIN UI ---
 models = train_model_from_csv()
 if not models:
-    st.error("⚠️ Data file not found. Please upload 'nba_training_data.csv'")
+    st.error("⚠️ Data file not found.")
     st.stop()
 
-# --- SIDEBAR (TEAMS & GAMES) ---
+# --- SIDEBAR ---
 st.sidebar.markdown("### 📅 Settings")
 selected_date = st.sidebar.date_input("Game Date", datetime.now())
 
-# Get Games & Teams
 team_list = teams.get_teams()
 team_options = {t['full_name']: t['id'] for t in team_list}
+
+# Load Rankings
+defense_ranks = get_team_defense_rankings()
+
+selected_game_opponent_id = None # We will try to find who they play today
 
 with st.sidebar:
     st.divider()
@@ -154,22 +181,21 @@ with st.sidebar:
         
         if not roster_df.empty:
             st.markdown("### Active Roster")
-            st.markdown("*(Click player to analyze)*")
             for _, row in roster_df.iterrows():
                 if st.button(row['PLAYER'], key=f"btn_{row['PLAYER_ID']}"):
                     st.session_state.selected_player_id = row['PLAYER_ID']
                     st.session_state.selected_player_name = row['PLAYER']
-        else:
-            st.error("Could not fetch roster.")
+                    st.session_state.selected_player_team_id = tid # Store team ID to find opponent
 
-# --- MAIN PAGE LOGIC ---
+# --- MAIN PAGE ---
 st.markdown("<h1 style='text-align: center; margin-bottom: 30px;'>🏀 NBA PROP ASSASSIN</h1>", unsafe_allow_html=True)
 
 if 'selected_player_id' not in st.session_state:
     st.session_state.selected_player_id = None
     st.session_state.selected_player_name = None
+    st.session_state.selected_player_team_id = None
 
-# Manual Search Fallback
+# Manual Search
 c1, c2, c3 = st.columns([1, 2, 1])
 with c2:
     manual_search = st.text_input("", placeholder="Or search manually (e.g. Luka Doncic)...", label_visibility="collapsed")
@@ -179,27 +205,61 @@ with c2:
         if found:
             st.session_state.selected_player_id = found['id']
             st.session_state.selected_player_name = found['full_name']
-        else:
-            st.error("Player not found.")
+            st.session_state.selected_player_team_id = None # Unknown team if searched manually
 
-# Display Analysis
 if st.session_state.selected_player_id:
     pid = st.session_state.selected_player_id
     pname = st.session_state.selected_player_name
+    ptid = st.session_state.selected_player_team_id
     
     recent_df = get_player_recent_stats(pid)
     
     if not recent_df.empty and len(recent_df) >= 5:
         preds = predict(models, recent_df)
         
-        # --- CALCULATE LAST 5 AVERAGES ---
         l5 = recent_df.tail(5)
-        avg_pts = l5['PTS'].mean()
-        avg_reb = l5['REB'].mean()
-        avg_ast = l5['AST'].mean()
-        avg_stl = l5['STL'].mean()
-        avg_blk = l5['BLK'].mean()
+        avg_stats = {
+            'PTS': l5['PTS'].mean(), 'REB': l5['REB'].mean(), 'AST': l5['AST'].mean(),
+            'STL': l5['STL'].mean(), 'BLK': l5['BLK'].mean()
+        }
         
+        # --- FIND OPPONENT FOR TODAY ---
+        opponent_rank_display = "Unknown"
+        matchup_color = "matchup-mid"
+        
+        # Try to find today's game
+        try:
+            board = scoreboardv2.ScoreboardV2(game_date=selected_date)
+            games = board.game_header.get_data_frame()
+            
+            # If we know the player's team ID (from sidebar selection), find the game
+            if ptid:
+                # Find game where HOME or VISITOR matches player team
+                game_row = games[(games['HOME_TEAM_ID'] == ptid) | (games['VISITOR_TEAM_ID'] == ptid)]
+                if not game_row.empty:
+                    # Identify Opponent
+                    if game_row.iloc[0]['HOME_TEAM_ID'] == ptid:
+                        opp_id = game_row.iloc[0]['VISITOR_TEAM_ID']
+                    else:
+                        opp_id = game_row.iloc[0]['HOME_TEAM_ID']
+                    
+                    # Get Rank
+                    rank = defense_ranks.get(opp_id, 15)
+                    team_info = teams.find_team_name_by_id(opp_id)
+                    opp_name = team_info['abbreviation'] if team_info else "OPP"
+                    
+                    if rank <= 10:
+                        opponent_rank_display = f"⚠️ vs {opp_name} (#{rank} Def)"
+                        matchup_color = "matchup-hard"
+                    elif rank >= 20:
+                        opponent_rank_display = f"✅ vs {opp_name} (#{rank} Def)"
+                        matchup_color = "matchup-easy"
+                    else:
+                        opponent_rank_display = f"⚖️ vs {opp_name} (#{rank} Def)"
+                        matchup_color = "matchup-mid"
+        except:
+            pass
+
         # --- PLAYER HEADER ---
         with st.container():
             st.markdown(f"""
@@ -211,35 +271,23 @@ if st.session_state.selected_player_id:
                         <div class='team-name'>ID: {pid} • 2025-26 Season</div>
                     </div>
                 </div>
-                <div style='display: flex; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 10px;'>
-                    <div class='banner-stat-box'>
-                        <div class='banner-val'>{avg_pts:.1f}</div>
-                        <div class='banner-label'>PTS</div>
-                    </div>
-                    <div class='banner-stat-box'>
-                        <div class='banner-val'>{avg_reb:.1f}</div>
-                        <div class='banner-label'>REB</div>
-                    </div>
-                    <div class='banner-stat-box'>
-                        <div class='banner-val'>{avg_ast:.1f}</div>
-                        <div class='banner-label'>AST</div>
-                    </div>
-                    <div class='banner-stat-box'>
-                        <div class='banner-val'>{avg_stl:.1f}</div>
-                        <div class='banner-label'>STL</div>
-                    </div>
-                    <div class='banner-stat-box'>
-                        <div class='banner-val'>{avg_blk:.1f}</div>
-                        <div class='banner-label'>BLK</div>
+                
+                <div style='display: flex; align-items: center; gap: 20px;'>
+                    <div class='{matchup_color}' style='font-size: 14px;'>{opponent_rank_display}</div>
+                    
+                    <div style='display: flex; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 10px;'>
+                        <div class='banner-stat-box'><div class='banner-val'>{avg_stats['PTS']:.1f}</div><div class='banner-label'>PTS</div></div>
+                        <div class='banner-stat-box'><div class='banner-val'>{avg_stats['REB']:.1f}</div><div class='banner-label'>REB</div></div>
+                        <div class='banner-stat-box'><div class='banner-val'>{avg_stats['AST']:.1f}</div><div class='banner-label'>AST</div></div>
+                        <div class='banner-stat-box'><div class='banner-val'>{avg_stats['STL']:.1f}</div><div class='banner-label'>STL</div></div>
+                        <div class='banner-stat-box'><div class='banner-val'>{avg_stats['BLK']:.1f}</div><div class='banner-label'>BLK</div></div>
                     </div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
-        # Betting Analyzer (Now with 5 Tabs)
+        # Betting Analyzer
         st.markdown("### 📊 Prop Analyzer")
-        
-        # --- UPDATED TABS HERE ---
         tab_pts, tab_reb, tab_ast, tab_stl, tab_blk = st.tabs(["Points", "Rebounds", "Assists", "Steals", "Blocks"])
         
         def render_card(stat_name, pred_val, df, stat_col):
