@@ -200,7 +200,7 @@ if st.session_state.selected_player_id:
         avg_stl = l5['STL'].mean()
         avg_blk = l5['BLK'].mean()
         
-        # --- PLAYER HEADER WITH STATS ---
+        # --- PLAYER HEADER (FIXED INDENTATION) ---
         with st.container():
             st.markdown(f"""
             <div class='glass-card' style='display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px;'>
@@ -211,7 +211,6 @@ if st.session_state.selected_player_id:
                         <div class='team-name'>ID: {pid} • 2025-26 Season</div>
                     </div>
                 </div>
-                
                 <div style='display: flex; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 10px;'>
                     <div class='banner-stat-box'>
                         <div class='banner-val'>{avg_pts:.1f}</div>
