@@ -52,6 +52,16 @@ st.markdown("""
     .player-name { font-size: 28px; font-weight: 700; margin-bottom: 5px; }
     .team-name { font-size: 16px; color: #8899AC; }
     
+    /* Banner Stats */
+    .banner-stat-box {
+        text-align: center;
+        padding: 0 15px;
+        border-right: 1px solid rgba(255,255,255,0.1);
+    }
+    .banner-stat-box:last-child { border-right: none; }
+    .banner-val { font-size: 20px; font-weight: 700; color: #fff; }
+    .banner-label { font-size: 10px; color: #aaa; text-transform: uppercase; }
+
     /* Betting Badges */
     .badge-over { background-color: rgba(0, 255, 127, 0.2); color: #00FF7F; padding: 5px 10px; border-radius: 8px; font-weight: bold; border: 1px solid #00FF7F; }
     .badge-under { background-color: rgba(255, 46, 99, 0.2); color: #FF2E63; padding: 5px 10px; border-radius: 8px; font-weight: bold; border: 1px solid #FF2E63; }
@@ -86,7 +96,6 @@ def get_team_map():
 
 @st.cache_data
 def get_roster(team_id):
-    # Fetches active roster for the 2025-26 season
     try:
         roster = commonteamroster.CommonTeamRoster(team_id=team_id, season='2025-26')
         return roster.get_data_frames()[0]
@@ -147,7 +156,6 @@ with st.sidebar:
             st.markdown("### Active Roster")
             st.markdown("*(Click player to analyze)*")
             for _, row in roster_df.iterrows():
-                # Create a button for each player
                 if st.button(row['PLAYER'], key=f"btn_{row['PLAYER_ID']}"):
                     st.session_state.selected_player_id = row['PLAYER_ID']
                     st.session_state.selected_player_name = row['PLAYER']
@@ -157,7 +165,6 @@ with st.sidebar:
 # --- MAIN PAGE LOGIC ---
 st.markdown("<h1 style='text-align: center; margin-bottom: 30px;'>🏀 NBA PROP ASSASSIN</h1>", unsafe_allow_html=True)
 
-# Initialize Session State
 if 'selected_player_id' not in st.session_state:
     st.session_state.selected_player_id = None
     st.session_state.selected_player_name = None
@@ -185,14 +192,47 @@ if st.session_state.selected_player_id:
     if not recent_df.empty and len(recent_df) >= 5:
         preds = predict(models, recent_df)
         
-        # Player Header
+        # --- CALCULATE LAST 5 AVERAGES ---
+        l5 = recent_df.tail(5)
+        avg_pts = l5['PTS'].mean()
+        avg_reb = l5['REB'].mean()
+        avg_ast = l5['AST'].mean()
+        avg_stl = l5['STL'].mean()
+        avg_blk = l5['BLK'].mean()
+        
+        # --- PLAYER HEADER WITH STATS ---
         with st.container():
             st.markdown(f"""
-            <div class='glass-card' style='display: flex; align-items: center; gap: 20px;'>
-                <img src='https://ak-static.cms.nba.com/wp-content/uploads/headshots/nba/latest/260x190/{pid}.png' style='border-radius: 10px; height: 120px;'>
-                <div>
-                    <div class='player-name'>{pname}</div>
-                    <div class='team-name'>ID: {pid} • 2025-26 Season</div>
+            <div class='glass-card' style='display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px;'>
+                <div style='display: flex; align-items: center; gap: 20px;'>
+                    <img src='https://ak-static.cms.nba.com/wp-content/uploads/headshots/nba/latest/260x190/{pid}.png' style='border-radius: 10px; height: 100px;'>
+                    <div>
+                        <div class='player-name'>{pname}</div>
+                        <div class='team-name'>ID: {pid} • 2025-26 Season</div>
+                    </div>
+                </div>
+                
+                <div style='display: flex; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 10px;'>
+                    <div class='banner-stat-box'>
+                        <div class='banner-val'>{avg_pts:.1f}</div>
+                        <div class='banner-label'>PTS</div>
+                    </div>
+                    <div class='banner-stat-box'>
+                        <div class='banner-val'>{avg_reb:.1f}</div>
+                        <div class='banner-label'>REB</div>
+                    </div>
+                    <div class='banner-stat-box'>
+                        <div class='banner-val'>{avg_ast:.1f}</div>
+                        <div class='banner-label'>AST</div>
+                    </div>
+                    <div class='banner-stat-box'>
+                        <div class='banner-val'>{avg_stl:.1f}</div>
+                        <div class='banner-label'>STL</div>
+                    </div>
+                    <div class='banner-stat-box'>
+                        <div class='banner-val'>{avg_blk:.1f}</div>
+                        <div class='banner-label'>BLK</div>
+                    </div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
