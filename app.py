@@ -117,25 +117,17 @@ def get_player_recent_stats(player_id):
     except:
         return pd.DataFrame()
 
-# --- NEW: DEFENSIVE RANKINGS ---
 @st.cache_data
 def get_team_defense_rankings():
-    """Fetches current season defensive rankings for Points Allowed."""
     try:
-        # Fetch league stats
         stats = leaguedashteamstats.LeagueDashTeamStats(season='2025-26', measure_type_detailed_defense='Base')
         df = stats.get_data_frames()[0]
-        # Sort by PTS allowed (lower is better defense)
         df = df.sort_values('PTS') 
-        
-        # Create a map: {Team_ID: Rank}
         rank_map = {}
         for rank, (index, row) in enumerate(df.iterrows(), 1):
             rank_map[row['TEAM_ID']] = rank
-            
         return rank_map
     except Exception as e:
-        print(f"Error fetching defense: {e}")
         return {}
 
 def predict(models, recent_stats):
@@ -163,11 +155,7 @@ selected_date = st.sidebar.date_input("Game Date", datetime.now())
 
 team_list = teams.get_teams()
 team_options = {t['full_name']: t['id'] for t in team_list}
-
-# Load Rankings
 defense_ranks = get_team_defense_rankings()
-
-selected_game_opponent_id = None # We will try to find who they play today
 
 with st.sidebar:
     st.divider()
@@ -185,14 +173,17 @@ with st.sidebar:
                 if st.button(row['PLAYER'], key=f"btn_{row['PLAYER_ID']}"):
                     st.session_state.selected_player_id = row['PLAYER_ID']
                     st.session_state.selected_player_name = row['PLAYER']
-                    st.session_state.selected_player_team_id = tid # Store team ID to find opponent
+                    st.session_state.selected_player_team_id = tid # Store team ID
 
 # --- MAIN PAGE ---
 st.markdown("<h1 style='text-align: center; margin-bottom: 30px;'>🏀 NBA PROP ASSASSIN</h1>", unsafe_allow_html=True)
 
+# --- ROBUST SESSION STATE INITIALIZATION ---
 if 'selected_player_id' not in st.session_state:
     st.session_state.selected_player_id = None
+if 'selected_player_name' not in st.session_state:
     st.session_state.selected_player_name = None
+if 'selected_player_team_id' not in st.session_state:
     st.session_state.selected_player_team_id = None
 
 # Manual Search
@@ -205,7 +196,7 @@ with c2:
         if found:
             st.session_state.selected_player_id = found['id']
             st.session_state.selected_player_name = found['full_name']
-            st.session_state.selected_player_team_id = None # Unknown team if searched manually
+            st.session_state.selected_player_team_id = None # Unknown team
 
 if st.session_state.selected_player_id:
     pid = st.session_state.selected_player_id
@@ -223,27 +214,22 @@ if st.session_state.selected_player_id:
             'STL': l5['STL'].mean(), 'BLK': l5['BLK'].mean()
         }
         
-        # --- FIND OPPONENT FOR TODAY ---
+        # --- FIND OPPONENT ---
         opponent_rank_display = "Unknown"
         matchup_color = "matchup-mid"
         
-        # Try to find today's game
         try:
             board = scoreboardv2.ScoreboardV2(game_date=selected_date)
             games = board.game_header.get_data_frame()
             
-            # If we know the player's team ID (from sidebar selection), find the game
             if ptid:
-                # Find game where HOME or VISITOR matches player team
                 game_row = games[(games['HOME_TEAM_ID'] == ptid) | (games['VISITOR_TEAM_ID'] == ptid)]
                 if not game_row.empty:
-                    # Identify Opponent
                     if game_row.iloc[0]['HOME_TEAM_ID'] == ptid:
                         opp_id = game_row.iloc[0]['VISITOR_TEAM_ID']
                     else:
                         opp_id = game_row.iloc[0]['HOME_TEAM_ID']
                     
-                    # Get Rank
                     rank = defense_ranks.get(opp_id, 15)
                     team_info = teams.find_team_name_by_id(opp_id)
                     opp_name = team_info['abbreviation'] if team_info else "OPP"
@@ -286,7 +272,6 @@ if st.session_state.selected_player_id:
             </div>
             """, unsafe_allow_html=True)
 
-        # Betting Analyzer
         st.markdown("### 📊 Prop Analyzer")
         tab_pts, tab_reb, tab_ast, tab_stl, tab_blk = st.tabs(["Points", "Rebounds", "Assists", "Steals", "Blocks"])
         
