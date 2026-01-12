@@ -200,7 +200,7 @@ if st.session_state.selected_player_id:
         avg_stl = l5['STL'].mean()
         avg_blk = l5['BLK'].mean()
         
-        # --- PLAYER HEADER (FIXED INDENTATION) ---
+        # --- PLAYER HEADER ---
         with st.container():
             st.markdown(f"""
             <div class='glass-card' style='display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px;'>
@@ -236,9 +236,11 @@ if st.session_state.selected_player_id:
             </div>
             """, unsafe_allow_html=True)
 
-        # Betting Analyzer
+        # Betting Analyzer (Now with 5 Tabs)
         st.markdown("### 📊 Prop Analyzer")
-        tab_pts, tab_reb, tab_ast = st.tabs(["Points", "Rebounds", "Assists"])
+        
+        # --- UPDATED TABS HERE ---
+        tab_pts, tab_reb, tab_ast, tab_stl, tab_blk = st.tabs(["Points", "Rebounds", "Assists", "Steals", "Blocks"])
         
         def render_card(stat_name, pred_val, df, stat_col):
             c1, c2 = st.columns([1, 2])
@@ -261,6 +263,8 @@ if st.session_state.selected_player_id:
         with tab_pts: render_card("Points", preds['PTS'], recent_df, 'PTS')
         with tab_reb: render_card("Rebounds", preds['REB'], recent_df, 'REB')
         with tab_ast: render_card("Assists", preds['AST'], recent_df, 'AST')
+        with tab_stl: render_card("Steals", preds['STL'], recent_df, 'STL')
+        with tab_blk: render_card("Blocks", preds['BLK'], recent_df, 'BLK')
 
     else:
         st.warning("Player inactive or insufficient data (needs 5 games).")
